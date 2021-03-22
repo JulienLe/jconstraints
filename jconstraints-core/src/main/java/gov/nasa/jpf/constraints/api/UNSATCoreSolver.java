@@ -19,14 +19,11 @@
 
 package gov.nasa.jpf.constraints.api;
 
-import gov.nasa.jpf.constraints.api.ConstraintSolver.Result;
 import java.util.List;
 
 public interface UNSATCoreSolver {
 
   public void enableUnsatTracking();
-
-  public Result solveWithUnsatCore(Valuation values);
 
   public List<Expression> getUnsatCore();
 }

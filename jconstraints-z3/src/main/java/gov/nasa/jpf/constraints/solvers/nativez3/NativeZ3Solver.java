@@ -231,11 +231,6 @@ public class NativeZ3Solver extends ConstraintSolver
   }
 
   @Override
-  public Result solveWithUnsatCore(Valuation values) {
-    throw new UnsupportedOperationException("Just use normal solving instead");
-  }
-
-  @Override
   public List<Expression> getUnsatCore() {
     return defaultContext.getUnsatCore();
   }

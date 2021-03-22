@@ -450,11 +450,6 @@ public class NativeZ3SolverContext extends SolverContext implements UNSATCoreSol
   }
 
   @Override
-  public Result solveWithUnsatCore(Valuation values) {
-    throw new UnsupportedOperationException("Try normal solving first");
-  }
-
-  @Override
   public List<Expression> getUnsatCore() {
     List<Expr> unsatCore = Arrays.asList(solver.getUnsatCore());
     List<Expression> jUnsatCore = new LinkedList<>();
