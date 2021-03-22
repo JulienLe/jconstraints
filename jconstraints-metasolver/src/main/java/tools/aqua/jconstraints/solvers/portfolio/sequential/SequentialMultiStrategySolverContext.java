@@ -36,6 +36,7 @@ import gov.nasa.jpf.constraints.api.Expression;
 import gov.nasa.jpf.constraints.api.SolverContext;
 import gov.nasa.jpf.constraints.api.Valuation;
 import gov.nasa.jpf.constraints.solvers.encapsulation.ProcessWrapperContext;
+import gov.nasa.jpf.constraints.util.ExpressionUtil;
 import java.util.List;
 import java.util.Map;
 
@@ -67,7 +68,8 @@ public class SequentialMultiStrategySolverContext extends SolverContext {
   public Result solve(Valuation valuation) {
     ProcessWrapperContext ctx =
         (ProcessWrapperContext) solvers.get(SequentialMultiStrategySolver.CVC4);
-    Expression expression = ctx.getCurrentExpression();
+    List<Expression<Boolean>> currentAssumptions = ctx.getCurrentExpression();
+    Expression expression = ExpressionUtil.and(currentAssumptions);
     StringOrFloatExpressionVisitor visitor = new StringOrFloatExpressionVisitor();
     boolean isStringOrFloatExpression = (Boolean) expression.accept(visitor, null);
     Result res;

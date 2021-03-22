@@ -128,7 +128,8 @@ public class SolverRunner {
               out.writeObject(new UnsatCoreMessage(core));
             }
           } else {
-            throw new UnsupportedOperationException("Cannot interpret this");
+            throw new UnsupportedOperationException(
+                "Cannot interpret this: " + read.getClass().getName());
           }
         } else {
           // Thread.sleep(1);
@@ -139,6 +140,8 @@ public class SolverRunner {
 
   private static Result solveWithTimeOut(SolverContext solver, List<Expression> expr, Valuation val)
       throws TimeoutException, ExecutionException, InterruptedException {
+    solver.pop();
+    solver.push();
     for (Expression e : expr) {
       solver.add(e);
     }
@@ -164,6 +167,8 @@ public class SolverRunner {
       UNSATCoreSolver unsatSolver = (UNSATCoreSolver) solver;
       unsatSolver.enableUnsatTracking();
     }
-    return solver.createContext();
+    SolverContext ctx = solver.createContext();
+    ctx.push();
+    return ctx;
   }
 }
