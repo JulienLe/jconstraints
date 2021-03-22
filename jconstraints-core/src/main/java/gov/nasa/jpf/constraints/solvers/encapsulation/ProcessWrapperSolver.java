@@ -22,11 +22,17 @@ package gov.nasa.jpf.constraints.solvers.encapsulation;
 import gov.nasa.jpf.constraints.api.ConstraintSolver;
 import gov.nasa.jpf.constraints.api.Expression;
 import gov.nasa.jpf.constraints.api.SolverContext;
+import gov.nasa.jpf.constraints.api.UNSATCoreSolver;
 import gov.nasa.jpf.constraints.api.Valuation;
 import gov.nasa.jpf.constraints.api.ValuationEntry;
+import gov.nasa.jpf.constraints.solvers.encapsulation.messages.EnableUnsatCoreTrackingMessage;
+import gov.nasa.jpf.constraints.solvers.encapsulation.messages.GetUnsatCoreMessage;
+import gov.nasa.jpf.constraints.solvers.encapsulation.messages.SolvingResultMesage;
 import gov.nasa.jpf.constraints.solvers.encapsulation.messages.StartSolvingMessage;
 import gov.nasa.jpf.constraints.solvers.encapsulation.messages.StopSolvingMessage;
 import gov.nasa.jpf.constraints.solvers.encapsulation.messages.TimeOutSolvingMessage;
+import gov.nasa.jpf.constraints.solvers.encapsulation.messages.UnsatCoreMessage;
+import gov.nasa.jpf.constraints.util.ExpressionUtil;
 import java.io.BufferedInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -36,14 +42,16 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.lang.management.ManagementFactory;
+import java.util.LinkedList;
 import java.util.List;
 
-public class ProcessWrapperSolver extends ConstraintSolver {
+public class ProcessWrapperSolver extends ConstraintSolver implements UNSATCoreSolver {
 
   private final String solverName;
   String javaClassPath;
   private String jConstraintsExtensionsPath;
   private static int TIMEOUT = 60;
+  private boolean isUnsatTracking = false;
   private String javaBinary;
 
   private Process solver;
@@ -79,8 +87,7 @@ public class ProcessWrapperSolver extends ConstraintSolver {
     }
   }
 
-  @Override
-  public synchronized Result solve(Expression<Boolean> f, Valuation result) {
+  Result solve(List<Expression<Boolean>> f, Valuation result) {
     try {
       return runSolverProcess(f, result);
     } catch (IOException | ClassNotFoundException e) {
@@ -96,11 +103,22 @@ public class ProcessWrapperSolver extends ConstraintSolver {
   }
 
   @Override
-  public SolverContext createContext() {
-    return new ProcessWrapperContext(solverName, javaBinary);
+  public Result solve(Expression<Boolean> f, Valuation result) {
+    List<Expression<Boolean>> tmp = new LinkedList<>();
+    tmp.add(f);
+    return solve(tmp, result);
   }
 
-  private Result runSolverProcess(Expression f, Valuation result)
+  @Override
+  public SolverContext createContext() {
+    UNSATCoreSolver ctx = new ProcessWrapperContext(solverName, javaBinary);
+    if (isUnsatTracking) {
+      ctx.enableUnsatTracking();
+    }
+    return (ProcessWrapperContext) ctx;
+  }
+
+  private Result runSolverProcess(List<Expression<Boolean>> f, Valuation result)
       throws IOException, InterruptedException, ClassNotFoundException {
     if (solver == null) {
       ProcessBuilder pb = new ProcessBuilder();
@@ -123,6 +141,11 @@ public class ProcessWrapperSolver extends ConstraintSolver {
       bes = new BufferedInputStream(errSolver);
       InputStream outSolver = solver.getInputStream();
       bos = new BufferedInputStream(outSolver);
+
+      if (isUnsatTracking) {
+        inObject.writeObject(new EnableUnsatCoreTrackingMessage());
+        inObject.flush();
+      }
     }
     if (solver.isAlive()) {
       inObject.writeObject(f);
@@ -144,14 +167,15 @@ public class ProcessWrapperSolver extends ConstraintSolver {
         if (done instanceof StopSolvingMessage) {
           Object o = outObject.readObject();
 
-          if (o instanceof SolvingResult) {
-            SolvingResult res = (SolvingResult) o;
+          if (o instanceof SolvingResultMesage) {
+            SolvingResultMesage res = (SolvingResultMesage) o;
             if (res.getResult().equals(Result.SAT) && result != null) {
               for (ValuationEntry e : res.getVal()) {
                 result.addEntry(e);
               }
               try {
-                assert (Boolean) f.evaluateSMT(result);
+                Expression completeExpression = ExpressionUtil.and(f);
+                assert (Boolean) completeExpression.evaluateSMT(result);
               } catch (UnsupportedOperationException e) {
                 // This might happen if something in the expression does not support the valuation.
               }
@@ -222,5 +246,30 @@ public class ProcessWrapperSolver extends ConstraintSolver {
   @Override
   public String getName() {
     return solverName;
+  }
+
+  @Override
+  public void enableUnsatTracking() {
+    isUnsatTracking = true;
+  }
+
+  @Override
+  public List<Expression> getUnsatCore() {
+    if (solver != null) {
+      try {
+        inObject.writeObject(new GetUnsatCoreMessage());
+        inObject.flush();
+        while (bos.available() == 0 && bes.available() == 0) {
+          // Thread.sleep(5);
+        }
+        if (!checkBes(bes, null)) {
+          UnsatCoreMessage ucm = (UnsatCoreMessage) outObject.readObject();
+          return ucm.getUnsatCore();
+        }
+      } catch (IOException | ClassNotFoundException e) {
+        e.printStackTrace();
+      }
+    }
+    return null;
   }
 }

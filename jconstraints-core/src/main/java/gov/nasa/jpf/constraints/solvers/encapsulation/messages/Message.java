@@ -19,4 +19,6 @@
 
 package gov.nasa.jpf.constraints.solvers.encapsulation.messages;
 
-public class StartSolvingMessage extends Message {}
+import java.io.Serializable;
+
+public abstract class Message implements Serializable {}

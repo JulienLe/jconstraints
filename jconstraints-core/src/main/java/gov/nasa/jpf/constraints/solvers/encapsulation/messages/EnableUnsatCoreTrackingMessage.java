@@ -19,4 +19,4 @@
 
 package gov.nasa.jpf.constraints.solvers.encapsulation.messages;
 
-public class StartSolvingMessage extends Message {}
+public class EnableUnsatCoreTrackingMessage extends Message {}

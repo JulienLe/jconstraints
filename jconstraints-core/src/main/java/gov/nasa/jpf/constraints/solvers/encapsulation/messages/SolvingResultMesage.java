@@ -19,4 +19,25 @@
 
 package gov.nasa.jpf.constraints.solvers.encapsulation.messages;
 
-public class StartSolvingMessage extends Message {}
+import gov.nasa.jpf.constraints.api.ConstraintSolver;
+import gov.nasa.jpf.constraints.api.ConstraintSolver.Result;
+import gov.nasa.jpf.constraints.api.Valuation;
+
+public class SolvingResultMesage extends Message {
+
+  private final ConstraintSolver.Result result;
+  private final Valuation val;
+
+  public SolvingResultMesage(ConstraintSolver.Result res, Valuation val) {
+    this.result = res;
+    this.val = val;
+  }
+
+  public Result getResult() {
+    return result;
+  }
+
+  public Valuation getVal() {
+    return val;
+  }
+}

@@ -19,4 +19,18 @@
 
 package gov.nasa.jpf.constraints.solvers.encapsulation.messages;
 
-public class StartSolvingMessage extends Message {}
+import gov.nasa.jpf.constraints.api.Expression;
+import java.util.List;
+
+public class UnsatCoreMessage extends Message {
+
+  private List<Expression> unsatCore;
+
+  public UnsatCoreMessage(List<Expression> core) {
+    this.unsatCore = core;
+  }
+
+  public List<Expression> getUnsatCore() {
+    return unsatCore;
+  }
+}

@@ -22,13 +22,13 @@ package gov.nasa.jpf.constraints.solvers.encapsulation;
 import gov.nasa.jpf.constraints.api.ConstraintSolver.Result;
 import gov.nasa.jpf.constraints.api.Expression;
 import gov.nasa.jpf.constraints.api.SolverContext;
+import gov.nasa.jpf.constraints.api.UNSATCoreSolver;
 import gov.nasa.jpf.constraints.api.Valuation;
-import gov.nasa.jpf.constraints.util.ExpressionUtil;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Stack;
 
-public class ProcessWrapperContext extends SolverContext {
+public class ProcessWrapperContext extends SolverContext implements UNSATCoreSolver {
 
   private final ProcessWrapperSolver solver;
   private Stack<List<Expression>> stack;
@@ -68,7 +68,7 @@ public class ProcessWrapperContext extends SolverContext {
 
   @Override
   public Result solve(Valuation val) {
-    Expression test = getCurrentExpression();
+    List<Expression<Boolean>> test = getCurrentExpression();
     Result res = solver.solve(test, val);
     //    if (res.equals(Result.SAT)) {
     //      assert (Boolean) test.evaluate(val);
@@ -76,17 +76,17 @@ public class ProcessWrapperContext extends SolverContext {
     return res;
   }
 
-  public Expression getCurrentExpression() {
-    Expression test = ExpressionUtil.TRUE;
+  public List<Expression<Boolean>> getCurrentExpression() {
+    List<Expression<Boolean>> currentExpr = new LinkedList<>();
     for (List<Expression> list : stack) {
       for (Expression e : list) {
-        test = ExpressionUtil.and(test, e);
+        currentExpr.add(e);
       }
     }
     for (Expression e : current) {
-      test = ExpressionUtil.and(test, e);
+      currentExpr.add(e);
     }
-    return test;
+    return currentExpr;
   }
 
   @Override
@@ -98,5 +98,15 @@ public class ProcessWrapperContext extends SolverContext {
   public void dispose() {
     stack = new Stack<>();
     current = new LinkedList<>();
+  }
+
+  @Override
+  public void enableUnsatTracking() {
+    solver.enableUnsatTracking();
+  }
+
+  @Override
+  public List<Expression> getUnsatCore() {
+    return solver.getUnsatCore();
   }
 }
