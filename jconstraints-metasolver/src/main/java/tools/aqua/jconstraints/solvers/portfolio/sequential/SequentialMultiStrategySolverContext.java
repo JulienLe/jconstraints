@@ -34,6 +34,7 @@ package tools.aqua.jconstraints.solvers.portfolio.sequential;
 import gov.nasa.jpf.constraints.api.ConstraintSolver.Result;
 import gov.nasa.jpf.constraints.api.Expression;
 import gov.nasa.jpf.constraints.api.SolverContext;
+import gov.nasa.jpf.constraints.api.UNSATCoreSolver;
 import gov.nasa.jpf.constraints.api.Valuation;
 import gov.nasa.jpf.constraints.solvers.encapsulation.ProcessWrapperContext;
 import gov.nasa.jpf.constraints.util.ExpressionUtil;
@@ -74,17 +75,20 @@ public class SequentialMultiStrategySolverContext extends SolverContext {
     boolean isStringOrFloatExpression = (Boolean) expression.accept(visitor, null);
     Result res;
     if (isCVC4Enabled && isStringOrFloatExpression) {
-      res = solvers.get(SequentialMultiStrategySolver.CVC4).solve(valuation);
+      ((UNSATCoreSolver) ctx).enableUnsatTracking();
+      res = ctx.solve(valuation);
 
       if (res.equals(Result.DONT_KNOW) && !isZ3CtxBroken) {
         System.out.println("Disable process solver and shutdown exec");
         isCVC4Enabled = false;
         return solve(valuation);
       }
+      if (res.equals(Result.UNSAT)) {
+        return checkUnsatCore(ctx.getUnsatCore(), SequentialMultiStrategySolver.Z3);
+      }
     } else {
       res = solvers.get(SequentialMultiStrategySolver.Z3).solve(valuation);
     }
-
     if (res.equals(Result.DONT_KNOW)) {
       return res;
     }
@@ -95,7 +99,28 @@ public class SequentialMultiStrategySolverContext extends SolverContext {
         res = Result.DONT_KNOW;
       }
     }
+    if (res.equals(Result.UNSAT)) {
+      UNSATCoreSolver z3UnsatCore = (UNSATCoreSolver) solvers.get(SequentialMultiStrategySolver.Z3);
+      return checkUnsatCore(z3UnsatCore.getUnsatCore(), SequentialMultiStrategySolver.CVC4);
+    }
     return res;
+  }
+
+  private Result checkUnsatCore(List<Expression> unsatCore, String solverKey) {
+    System.out.println("Checking unsat core");
+    Expression<Boolean> concat = ExpressionUtil.TRUE;
+    for (Expression e : unsatCore) {
+      concat = ExpressionUtil.and(concat, e);
+    }
+    Result res2 = solvers.get(solverKey).solve(concat, null);
+
+    if (res2.equals(Result.UNSAT)) {
+      System.out.println("UNSAT Core confirmed");
+      return res2;
+    } else {
+      System.out.println("UNSAT Core not confirmed");
+      return Result.DONT_KNOW;
+    }
   }
 
   @Override
