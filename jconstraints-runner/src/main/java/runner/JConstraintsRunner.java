@@ -20,6 +20,7 @@
 package runner;
 
 import gov.nasa.jpf.constraints.api.ConstraintSolver;
+import gov.nasa.jpf.constraints.api.SolverContext;
 import gov.nasa.jpf.constraints.api.Valuation;
 import gov.nasa.jpf.constraints.smtlibUtility.SMTProblem;
 import gov.nasa.jpf.constraints.solvers.ConstraintSolverFactory;
@@ -58,9 +59,10 @@ public class JConstraintsRunner {
         constraintSolver = ConstraintSolverFactory.createSolver(solver);
       }
       SMTProblem problem = Processor.parseFile(new File(filepath));
+      SolverContext ctx = constraintSolver.createContext();
       Valuation val = new Valuation();
-      ConstraintSolver.Result res =
-          constraintSolver.solve(problem.getAllAssertionsAsConjunction(), val);
+      ctx.add(problem.assertions);
+      ConstraintSolver.Result res = ctx.solve(val);
       System.out.println("RESULT: " + res);
       if (res == ConstraintSolver.Result.SAT) {
         boolean evaluated = false;
