@@ -1,13 +1,15 @@
 #!/bin/sh
 
-res=$(gradle licenseCheck |grep "BUILD FAILED")
-if [ ! -z $res ]; then 
+gradle licenseCheck
+if [[ 0 -ne $? ]];
+then 
 	echo "Check license format";
 	exit 1;
-fi 
-res= $(gradle verGJF | grep "BUILD FAILED")
-if [ ! -z $res ]; then 
+fi
+gradle verGJF
+if [[ 0 -ne $? ]];
+then 
         echo "Check code format";
         exit 2;
 fi
-
+exit 0;
