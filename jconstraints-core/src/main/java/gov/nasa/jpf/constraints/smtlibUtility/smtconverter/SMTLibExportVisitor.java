@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 
-package gov.nasa.jpf.constraints.smtlibUtility.solver;
+package gov.nasa.jpf.constraints.smtlibUtility.smtconverter;
 
 import gov.nasa.jpf.constraints.api.Expression;
 import gov.nasa.jpf.constraints.api.Variable;
@@ -58,16 +58,33 @@ import java.math.BigInteger;
 public class SMTLibExportVisitor extends AbstractExpressionVisitor<Void, Void> {
 
   private final SMTLibExportGenContext ctx;
+  private SMTLibExportVisitorConfig config;
+
+  public SMTLibExportVisitor(SMTLibExportGenContext ctx, SMTLibExportVisitorConfig config) {
+    this(ctx);
+    this.config = config;
+  }
 
   public SMTLibExportVisitor(SMTLibExportGenContext ctx) {
     this.ctx = ctx;
+    this.config = new SMTLibExportVisitorConfig();
   }
 
-  public void transform(Expression<?> e) {
+  public String transform(Expression<?> e) {
     ctx.open("assert");
+    if (config.namedAssert) {
+      ctx.open("!");
+    }
     defaultVisit(e, null);
+    String name = null;
+    if (config.namedAssert) {
+      name = String.format("__stmt%d__", ++config.stmtCounter);
+      ctx.append(String.format(":named %s", name));
+      ctx.close();
+    }
     ctx.close();
     ctx.flush();
+    return name;
   }
 
   @Override
@@ -90,9 +107,16 @@ public class SMTLibExportVisitor extends AbstractExpressionVisitor<Void, Void> {
       ctx.append("#x" + String.format("%1$04x", (int) i));
     } else if (BuiltinTypes.INTEGER.equals(c.getType())) {
       BigInteger i = (BigInteger) c.getValue();
-      ctx.append(i.toString());
+      if (i.compareTo(BigInteger.ZERO) < 0) {
+        ctx.open("-");
+        ctx.append(i.toString().replace("-", ""));
+        ctx.close();
+      } else {
+        ctx.append(i.toString());
+      }
     } else if (BuiltinTypes.STRING.equals(c.getType())) {
       String s = (String) c.getValue();
+      s = s.replace("\"", "\"\"");
       ctx.append("\"" + s + "\"");
     } else if (BuiltinTypes.BOOL.equals(c.getType())) {
       ctx.append(c.getValue().toString());
@@ -148,7 +172,11 @@ public class SMTLibExportVisitor extends AbstractExpressionVisitor<Void, Void> {
 
   @Override
   public Void visit(RegExBooleanExpression n, Void v) {
-    ctx.open("str.in.re");
+    String operator = "str.in_re";
+    if (config.isZ3Mode) {
+      operator = "str.in.re";
+    }
+    ctx.open(operator);
     visit(n.getLeft(), v);
     visit(n.getRight(), v);
     ctx.close();
@@ -158,8 +186,14 @@ public class SMTLibExportVisitor extends AbstractExpressionVisitor<Void, Void> {
   @Override
   public Void visit(StringBooleanExpression n, Void v) {
     ctx.open(stringComp(n.getOperator()));
-    visit(n.getLeft(), v);
-    visit(n.getRight(), v);
+    if (n.getOperator().equals(StringBooleanOperator.PREFIXOF)
+        || n.getOperator().equals(StringBooleanOperator.SUFFIXOF)) {
+      visit(n.getRight(), v);
+      visit(n.getLeft(), v);
+    } else {
+      visit(n.getLeft(), v);
+      visit(n.getRight(), v);
+    }
     ctx.close();
     return null;
   }
@@ -201,7 +235,11 @@ public class SMTLibExportVisitor extends AbstractExpressionVisitor<Void, Void> {
         return "str.len";
       case TOINT:
         // In QF_S this is str.to_int
-        return "str.to.int";
+        if (config.isZ3Mode) {
+          return "str.to.int";
+        } else {
+          return "str.to_int";
+        }
       default:
         throw new IllegalArgumentException("Unsupported: " + op);
     }
@@ -228,7 +266,11 @@ public class SMTLibExportVisitor extends AbstractExpressionVisitor<Void, Void> {
         return "str.at";
       case TOSTR:
         // In QF_S this is str.from_int
-        return "int.to.str";
+        if (config.isZ3Mode) {
+          return "int.to.str";
+        } else {
+          return "str.from_int";
+        }
       case REPLACE:
         return "str.replace";
       case TOLOWERCASE:
@@ -276,7 +318,11 @@ public class SMTLibExportVisitor extends AbstractExpressionVisitor<Void, Void> {
       case OPTIONAL:
         return "re.opt";
       case STRTORE:
-        return "str.to.re";
+        if (config.isZ3Mode) {
+          return "str.to.re";
+        } else {
+          return "str.to_re";
+        }
       case ALLCHAR:
         return "re.allchar";
       case ALL:
@@ -314,7 +360,12 @@ public class SMTLibExportVisitor extends AbstractExpressionVisitor<Void, Void> {
           visit(n.getLeft(), data);
           break;
         case STRTORE:
-          ctx.append("\"" + n.getS() + "\"");
+          String value = n.getS();
+          if (value != null) {
+            ctx.append("\"" + value + "\"");
+          } else {
+            visit(n.getLeft(), data);
+          }
           break;
         case ALLCHAR:
           break;
@@ -386,6 +437,8 @@ public class SMTLibExportVisitor extends AbstractExpressionVisitor<Void, Void> {
         return bvType(t) ? "bvadd" : "+";
       case REM:
         return bvType(t) ? (isSigned(t) ? "bvsrem" : "bvurem") : "mod";
+      case MOD:
+        return bvType(t) ? (isSigned(t) ? "bvsmod" : "bvurem") : "mod";
       default:
         throw new IllegalArgumentException("Unsupported: " + op);
     }

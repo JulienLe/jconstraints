@@ -139,14 +139,14 @@ public class StringExpressionTest {
 
   @Test(groups = {"base", "smt-export"})
   public void strPrefixOfTest() {
-    String expected = "(declare-const x String)\n(assert (str.prefixof x \"TEST\"))\n";
+    String expected = "(declare-const x String)\n(assert (str.prefixof \"TEST\" x))\n";
     StringBooleanExpression strBool = StringBooleanExpression.createPrefixOf(var, constant);
     Util.runTest(strBool, expected);
   }
 
   @Test(groups = {"base", "smt-export"})
   public void strSuffixOfTest() {
-    String expected = "(declare-const x String)\n(assert (str.suffixof x \"TEST\"))\n";
+    String expected = "(declare-const x String)\n(assert (str.suffixof \"TEST\" x))\n";
     StringBooleanExpression strBool = StringBooleanExpression.createSuffixOf(var, constant);
     Util.runTest(strBool, expected);
   }

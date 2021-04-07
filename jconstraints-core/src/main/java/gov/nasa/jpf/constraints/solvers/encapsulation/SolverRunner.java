@@ -78,7 +78,7 @@ public class SolverRunner {
         | InterruptedException
         | ExecutionException e) {
       ObjectOutputStream err = new ObjectOutputStream(System.err);
-      err.writeObject(e);
+      // err.writeObject(e);
       exit(2);
     }
   }
@@ -152,7 +152,7 @@ public class SolverRunner {
     } catch (TimeoutException e) {
       solverRun.cancel(true);
       exec.shutdown();
-      throw e;
+      return Result.TIMEOUT;
     }
   }
 

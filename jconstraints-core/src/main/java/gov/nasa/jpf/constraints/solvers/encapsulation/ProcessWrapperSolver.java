@@ -41,6 +41,7 @@ import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.io.StreamCorruptedException;
 import java.lang.management.ManagementFactory;
 import java.util.LinkedList;
 import java.util.List;
@@ -59,6 +60,8 @@ public class ProcessWrapperSolver extends ConstraintSolver implements UNSATCoreS
   private BufferedInputStream bes;
   private BufferedInputStream bos;
   private ObjectInputStream outObject;
+
+  private int RETRIES = 3;
 
   public ProcessWrapperSolver(String solver) {
     super.name = solver + "prozess";
@@ -87,18 +90,30 @@ public class ProcessWrapperSolver extends ConstraintSolver implements UNSATCoreS
     }
   }
 
-  Result solve(List<Expression<Boolean>> f, Valuation result) {
+  Result solve(List<Expression<Boolean>> f, Valuation result, int counter) {
+
     try {
       return runSolverProcess(f, result);
     } catch (IOException | ClassNotFoundException e) {
       logCallToSolver(f);
       e.printStackTrace();
+      ++counter;
+      if (counter < RETRIES) {
+        if (solver != null && solver.isAlive()) {
+          solver.destroy();
+        }
+        solver = null;
+        bes = null;
+        bos = null;
+        inObject = null;
+        solve(f, result, counter);
+      }
       return Result.DONT_KNOW;
     } catch (InterruptedException e) {
       solver = null;
       outObject = null;
       System.out.println("Restart required");
-      return solve(f, result);
+      return solve(f, result, 0);
     }
   }
 
@@ -106,7 +121,7 @@ public class ProcessWrapperSolver extends ConstraintSolver implements UNSATCoreS
   public Result solve(Expression<Boolean> f, Valuation result) {
     List<Expression<Boolean>> tmp = new LinkedList<>();
     tmp.add(f);
-    return solve(tmp, result);
+    return solve(tmp, result, 0);
   }
 
   @Override
@@ -185,7 +200,10 @@ public class ProcessWrapperSolver extends ConstraintSolver implements UNSATCoreS
         } else if (done instanceof TimeOutSolvingMessage) {
           System.out.println("Timeout in process Solver");
           solver.destroyForcibly();
+          return Result.TIMEOUT;
         }
+      } else {
+        return Result.ERROR;
       }
     }
     return Result.DONT_KNOW;
@@ -216,16 +234,18 @@ public class ProcessWrapperSolver extends ConstraintSolver implements UNSATCoreS
 
   private boolean checkBes(BufferedInputStream bes, Object f) throws IOException {
     if (bes.available() > 0) {
-      ObjectInputStream errObject = new ObjectInputStream(bes);
       try {
+        ObjectInputStream errObject = new ObjectInputStream(bes);
         Object err = errObject.readObject();
         Exception e = (Exception) err;
         e.printStackTrace();
       } catch (ClassNotFoundException e) {
         System.out.println("f: " + f);
         logCallToSolver(f);
+      } catch (StreamCorruptedException e) {
+        System.out.println("There was something on std err, that could not be read");
       }
-      throw new IOException();
+      return true;
     }
     return false;
   }

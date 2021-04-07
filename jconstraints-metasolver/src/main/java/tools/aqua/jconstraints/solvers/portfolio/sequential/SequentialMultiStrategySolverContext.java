@@ -34,25 +34,39 @@ package tools.aqua.jconstraints.solvers.portfolio.sequential;
 import gov.nasa.jpf.constraints.api.ConstraintSolver.Result;
 import gov.nasa.jpf.constraints.api.Expression;
 import gov.nasa.jpf.constraints.api.SolverContext;
+import gov.nasa.jpf.constraints.api.StoppableSolver;
 import gov.nasa.jpf.constraints.api.UNSATCoreSolver;
 import gov.nasa.jpf.constraints.api.Valuation;
-import gov.nasa.jpf.constraints.solvers.encapsulation.ProcessWrapperContext;
+import gov.nasa.jpf.constraints.solvers.datastructures.ExpressionStack;
 import gov.nasa.jpf.constraints.util.ExpressionUtil;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class SequentialMultiStrategySolverContext extends SolverContext {
 
   private Map<String, SolverContext> solvers;
   private boolean isCVC4Enabled = true;
-  private boolean isZ3CtxBroken = true;
+  private boolean isZ3CtxBroken = false;
+  private boolean isCoreChecking = true;
+  private ExpressionStack stack;
 
-  public SequentialMultiStrategySolverContext(Map<String, SolverContext> ctxs) {
+  public SequentialMultiStrategySolverContext(
+      Map<String, SolverContext> ctxs, boolean coreChecking) {
     this.solvers = ctxs;
+    this.isCoreChecking = coreChecking;
+    stack = new ExpressionStack();
   }
 
   @Override
   public void push() {
+    stack.push();
     for (SolverContext ctx : solvers.values()) {
       ctx.push();
     }
@@ -60,6 +74,7 @@ public class SequentialMultiStrategySolverContext extends SolverContext {
 
   @Override
   public void pop(int i) {
+    stack.pop(i);
     for (SolverContext ctx : solvers.values()) {
       ctx.pop(i);
     }
@@ -67,24 +82,38 @@ public class SequentialMultiStrategySolverContext extends SolverContext {
 
   @Override
   public Result solve(Valuation valuation) {
-    ProcessWrapperContext ctx =
-        (ProcessWrapperContext) solvers.get(SequentialMultiStrategySolver.CVC4);
-    List<Expression<Boolean>> currentAssumptions = ctx.getCurrentExpression();
-    Expression expression = ExpressionUtil.and(currentAssumptions);
+    Expression<Boolean> expression = ExpressionUtil.and(stack.getCurrentExpression());
     StringOrFloatExpressionVisitor visitor = new StringOrFloatExpressionVisitor();
     boolean isStringOrFloatExpression = (Boolean) expression.accept(visitor, null);
     Result res;
-    if (isCVC4Enabled && isStringOrFloatExpression) {
-      ((UNSATCoreSolver) ctx).enableUnsatTracking();
-      res = ctx.solve(valuation);
 
-      if (res.equals(Result.DONT_KNOW) && !isZ3CtxBroken) {
+    if (isCVC4Enabled && isStringOrFloatExpression) {
+      SolverContext ctx = solvers.get(SequentialMultiStrategySolver.CVC4);
+      UNSATCoreSolver cvc4Unsat = (UNSATCoreSolver) ctx;
+      CVC4SolverThread cvc4Solve = new CVC4SolverThread(valuation, ctx);
+      ExecutorService exec = new ForkJoinPool();
+      try {
+        Future<Result> fres = exec.submit(cvc4Solve);
+        res = fres.get(60, TimeUnit.SECONDS);
+
+      } catch (InterruptedException | ExecutionException | TimeoutException e) {
+        System.out.println("CVC4 timed out");
+        if (ctx instanceof StoppableSolver) {
+          StoppableSolver stoppable = (StoppableSolver) ctx;
+          stoppable.stopSolver();
+        }
+        res = Result.ERROR;
+      } finally {
+        exec.shutdown();
+      }
+      if ((res.equals(Result.DONT_KNOW) || res.equals(Result.TIMEOUT) || res.equals(Result.ERROR))
+          && !isZ3CtxBroken) {
         System.out.println("Disable process solver and shutdown exec");
         isCVC4Enabled = false;
         return solve(valuation);
       }
       if (res.equals(Result.UNSAT)) {
-        return checkUnsatCore(ctx.getUnsatCore(), SequentialMultiStrategySolver.Z3);
+        return checkUnsatCore(cvc4Unsat.getUnsatCore(), SequentialMultiStrategySolver.Z3);
       }
     } else {
       res = solvers.get(SequentialMultiStrategySolver.Z3).solve(valuation);
@@ -107,6 +136,9 @@ public class SequentialMultiStrategySolverContext extends SolverContext {
   }
 
   private Result checkUnsatCore(List<Expression> unsatCore, String solverKey) {
+    if (!isCoreChecking) {
+      return Result.UNSAT;
+    }
     System.out.println("Checking unsat core");
     Expression<Boolean> concat = ExpressionUtil.TRUE;
     for (Expression e : unsatCore) {
@@ -125,19 +157,38 @@ public class SequentialMultiStrategySolverContext extends SolverContext {
 
   @Override
   public void add(List<Expression<Boolean>> list) {
+    stack.add(list);
     try {
       for (SolverContext ctx : solvers.values()) {
         ctx.add(list);
       }
     } catch (RuntimeException e) {
+      System.out.println("There was an error during add. Assume Z3 broken");
       isZ3CtxBroken = true;
     }
   }
 
   @Override
   public void dispose() {
+    stack = new ExpressionStack();
     for (SolverContext ctx : solvers.values()) {
       ctx.dispose();
+    }
+  }
+
+  private class CVC4SolverThread implements Callable<Result> {
+
+    private Valuation val;
+    private SolverContext ctx;
+
+    private CVC4SolverThread(Valuation val, SolverContext ctx) {
+      this.val = val;
+      this.ctx = ctx;
+    }
+
+    @Override
+    public Result call() {
+      return ctx.solve(val);
     }
   }
 }

@@ -32,6 +32,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** valuation of a number of variables (identified by names). */
 public class Valuation extends AbstractPrintable
@@ -144,6 +146,13 @@ public class Valuation extends AbstractPrintable
 
   public <E> void setParsedValue(Variable<E> v, String strVal)
       throws ImpreciseRepresentationException {
+    if (strVal.startsWith("(- ")) {
+      Pattern p = Pattern.compile("\\(- (?<value>\\d+)\\)");
+      Matcher m = p.matcher(strVal);
+      if (m.find()) {
+        strVal = "-" + m.group("value");
+      }
+    }
     setValue(v, v.getType().parse(strVal));
   }
 

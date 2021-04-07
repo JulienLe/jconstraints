@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 
-package gov.nasa.jpf.constraints.smtlibUtility.solver;
+package gov.nasa.jpf.constraints.smtlibUtility.smtconverter;
 
 import gov.nasa.jpf.constraints.api.Variable;
 import gov.nasa.jpf.constraints.types.BuiltinTypes;
@@ -114,13 +114,13 @@ public class SMTLibExportGenContext {
     }
   }
 
-  void push() {
+  public void push() {
     this.varContext.flush();
     out.println("(push)");
     this.varContext = new VarContext(this.varContext);
   }
 
-  void pop(int n) {
+  public void pop(int n) {
     for (int i = 0; i < n; i++) {
       out.println("(pop)");
       if (this.varContext.next != null) {
@@ -134,10 +134,26 @@ public class SMTLibExportGenContext {
     out.flush();
   }
 
+  public void getModel() {
+    out.println("(get-model)");
+    out.flush();
+  }
+
+  public void getUnsatCore() {
+    out.println("(get-unsat-core)");
+    out.flush();
+  }
+
+  public void exit() {
+    out.println("(exit)");
+    out.flush();
+  }
+
   public void flush() {
     this.varContext.flush();
     out.println(statementBuffer.toString());
     statementBuffer = new StringBuilder();
+    out.flush();
   }
 
   private String type(Variable v) {

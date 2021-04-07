@@ -22,9 +22,11 @@ package runner;
 import gov.nasa.jpf.constraints.api.ConstraintSolver;
 import gov.nasa.jpf.constraints.api.SolverContext;
 import gov.nasa.jpf.constraints.api.Valuation;
+import gov.nasa.jpf.constraints.exceptions.UndecidedBooleanExeception;
 import gov.nasa.jpf.constraints.smtlibUtility.SMTProblem;
 import gov.nasa.jpf.constraints.solvers.ConstraintSolverFactory;
 import gov.nasa.jpf.constraints.solvers.encapsulation.ProcessWrapperSolver;
+import io.github.tudoaqua.jconstraints.cvc4.CVC4SMTCMDSolver;
 import java.io.File;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -51,10 +53,13 @@ public class JConstraintsRunner {
     String solver = cmd.getOptionValue("s");
     if (solver.equalsIgnoreCase("z3")
         || solver.equalsIgnoreCase("cvc4")
-        || solver.equalsIgnoreCase("multi")) {
+        || solver.equalsIgnoreCase("multi")
+        || solver.equalsIgnoreCase("cvc4cmd")) {
       ConstraintSolver constraintSolver;
       if (solver.equalsIgnoreCase("cvc4")) {
         constraintSolver = new ProcessWrapperSolver("cvc4");
+      } else if (solver.equalsIgnoreCase("cvc4cmd")) {
+        constraintSolver = new CVC4SMTCMDSolver();
       } else {
         constraintSolver = ConstraintSolverFactory.createSolver(solver);
       }
@@ -69,6 +74,8 @@ public class JConstraintsRunner {
         try {
           System.out.println("Valuation: " + val.toString());
           evaluated = problem.getAllAssertionsAsConjunction().evaluateSMT(val);
+        } catch (UndecidedBooleanExeception e) {
+          evaluated = true;
         } catch (Throwable t) {
           t.printStackTrace();
           System.out.println("VALUATIONERROR");

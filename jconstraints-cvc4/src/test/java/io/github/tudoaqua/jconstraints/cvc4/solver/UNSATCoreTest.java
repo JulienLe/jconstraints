@@ -37,6 +37,7 @@ import gov.nasa.jpf.constraints.expressions.Negation;
 import gov.nasa.jpf.constraints.expressions.PropositionalCompound;
 import gov.nasa.jpf.constraints.types.BuiltinTypes;
 import io.github.tudoaqua.jconstraints.cvc4.AbstractCVC4Test;
+import io.github.tudoaqua.jconstraints.cvc4.CVC4SMTCMDSolver;
 import io.github.tudoaqua.jconstraints.cvc4.CVC4Solver;
 import java.util.HashMap;
 import java.util.List;
@@ -84,6 +85,36 @@ public class UNSATCoreTest extends AbstractCVC4Test {
     ctx.pop();
     ctx.push();
 
+    Variable p = Variable.create(BuiltinTypes.BOOL, "p");
+    Variable q = Variable.create(BuiltinTypes.BOOL, "q");
+    Variable r = Variable.create(BuiltinTypes.BOOL, "r");
+    Variable s = Variable.create(BuiltinTypes.BOOL, "s");
+
+    PropositionalCompound pc2 = PropositionalCompound.create(r, IMPLY, s);
+    PropositionalCompound pc3 =
+        PropositionalCompound.create(s, IMPLY, PropositionalCompound.create(q, EQUIV, r));
+    ctx.add(PropositionalCompound.create(p, OR, q));
+    ctx.add(pc2);
+    ctx.add(pc3);
+    ctx.add(PropositionalCompound.create(r, OR, p));
+    ctx.add(PropositionalCompound.create(r, OR, s));
+    ctx.add(Negation.create(PropositionalCompound.create(r, AND, q)));
+    ctx.add(Negation.create(PropositionalCompound.create(s, AND, p)));
+    assertEquals(Result.UNSAT, ctx.solve(null));
+    UNSATCoreSolver unsatCTX = (UNSATCoreSolver) ctx;
+
+    List<Expression> unsatCore = unsatCTX.getUnsatCore();
+    assertEquals(6, unsatCore.size());
+    assertTrue(unsatCore.contains(pc2));
+    assertFalse(unsatCore.contains(pc3));
+  }
+
+  @Test(groups = {"manual"})
+  public void example3Test() {
+    ConstraintSolver cvc4 = new CVC4SMTCMDSolver();
+    UNSATCoreSolver cvc4UnsatCore = (UNSATCoreSolver) cvc4;
+    cvc4UnsatCore.enableUnsatTracking();
+    SolverContext ctx = cvc4.createContext();
     Variable p = Variable.create(BuiltinTypes.BOOL, "p");
     Variable q = Variable.create(BuiltinTypes.BOOL, "q");
     Variable r = Variable.create(BuiltinTypes.BOOL, "r");

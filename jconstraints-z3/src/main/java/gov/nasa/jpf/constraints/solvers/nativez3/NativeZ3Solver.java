@@ -225,7 +225,7 @@ public class NativeZ3Solver extends ConstraintSolver
   @Override
   public void enableUnsatTracking() {
     dispose();
-    Global.setParameter("produce_unsat_cores", "true");
+    Global.setParameter("unsat_core", "true");
     init();
     unsatTracking = true;
   }
