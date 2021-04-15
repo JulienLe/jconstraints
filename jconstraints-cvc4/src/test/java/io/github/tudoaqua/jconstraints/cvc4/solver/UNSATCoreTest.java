@@ -109,7 +109,9 @@ public class UNSATCoreTest extends AbstractCVC4Test {
     assertFalse(unsatCore.contains(pc3));
   }
 
-  @Test(groups = {"manual"})
+  @Test(
+      groups = {"manual"},
+      enabled = false)
   public void example3Test() {
     ConstraintSolver cvc4 = new CVC4SMTCMDSolver();
     UNSATCoreSolver cvc4UnsatCore = (UNSATCoreSolver) cvc4;
