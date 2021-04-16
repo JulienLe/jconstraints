@@ -128,6 +128,7 @@ public class SMTLIBParser {
                   }
                   return a + processed;
                 });
+    input = input.replaceAll(Character.toString((char) 127), "\\\\u{7F}");
     return parseSMTProgram(input);
   }
 
@@ -427,6 +428,9 @@ public class SMTLIBParser {
       if (arguments.peek() == null) {
         if (newOperator == NumericOperator.MINUS && expr != null) {
           expr = UnaryMinus.create(expr);
+        } else if (newOperator == LogicalOperator.OR || newOperator == LogicalOperator.AND) {
+          // We can safely drop them, if they have only one child;
+          expr = expr;
         } else {
           arguments.add(expr);
           throw new SMTLIBParserExceptionInvalidMethodCall(

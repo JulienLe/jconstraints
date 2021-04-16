@@ -64,7 +64,12 @@ public class SMTLibModelParser {
   }
 
   static String resolveUnicode(String toString) {
+    toString = toString.replaceAll(Pattern.quote("\\u{7f}"), Character.toString((char) 127));
     toString = toString.replaceAll(Pattern.quote("u{5c}"), "");
-    return toString.replaceAll(Pattern.quote("\\u{0}"), "\0");
+    toString = toString.replaceAll(Pattern.quote("\\u{0}"), "\0");
+    if (!toString.equals("\"\"")) {
+      toString = toString.replaceAll("\"\"", "\"");
+    }
+    return toString;
   }
 }

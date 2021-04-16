@@ -39,6 +39,7 @@ import java.util.regex.Pattern;
 public class Valuation extends AbstractPrintable
     implements Iterable<ValuationEntry<?>>, Function<Variable<?>, Expression<?>>, Serializable {
 
+  public boolean shouldConvertZ3Encoding = false;
   private Map<Variable<?>, ValuationEntry<?>> entries =
       new HashMap<Variable<?>, ValuationEntry<?>>();
 

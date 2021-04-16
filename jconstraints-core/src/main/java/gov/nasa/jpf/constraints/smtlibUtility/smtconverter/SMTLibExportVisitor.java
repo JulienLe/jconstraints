@@ -50,6 +50,7 @@ import gov.nasa.jpf.constraints.expressions.StringIntegerOperator;
 import gov.nasa.jpf.constraints.expressions.StringOperator;
 import gov.nasa.jpf.constraints.expressions.UnaryMinus;
 import gov.nasa.jpf.constraints.expressions.functions.FunctionExpression;
+import gov.nasa.jpf.constraints.smtlibUtility.parser.utility.ConversionUtil;
 import gov.nasa.jpf.constraints.types.BVIntegerType;
 import gov.nasa.jpf.constraints.types.BuiltinTypes;
 import gov.nasa.jpf.constraints.types.Type;
@@ -116,7 +117,10 @@ public class SMTLibExportVisitor extends AbstractExpressionVisitor<Void, Void> {
       }
     } else if (BuiltinTypes.STRING.equals(c.getType())) {
       String s = (String) c.getValue();
-      s = s.replace("\"", "\"\"");
+      if (config.replaceZ3Escape) {
+        s = ConversionUtil.convertZ3EncodingToSMTLib(s);
+      }
+      s = s.replaceAll("\"", "\"\"");
       ctx.append("\"" + s + "\"");
     } else if (BuiltinTypes.BOOL.equals(c.getType())) {
       ctx.append(c.getValue().toString());
@@ -273,6 +277,8 @@ public class SMTLibExportVisitor extends AbstractExpressionVisitor<Void, Void> {
         }
       case REPLACE:
         return "str.replace";
+      case REPLACEALL:
+        return "str.replace_all";
       case TOLOWERCASE:
         return "str.lower";
       case TOUPPERCASE:
@@ -339,7 +345,8 @@ public class SMTLibExportVisitor extends AbstractExpressionVisitor<Void, Void> {
   @Override
   public Void visit(RegexOperatorExpression n, Void data) {
     String operator = regexOp(n.getOperator());
-    if (n.getOperator().equals(RegExOperator.ALLCHAR)) {
+    if (n.getOperator().equals(RegExOperator.ALLCHAR)
+        || n.getOperator().equals(RegExOperator.NOSTR)) {
       ctx.append(operator);
     } else {
       ctx.open(operator);

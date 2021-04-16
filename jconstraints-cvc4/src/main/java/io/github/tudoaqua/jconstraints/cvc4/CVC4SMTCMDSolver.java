@@ -33,6 +33,7 @@ public class CVC4SMTCMDSolver extends SMTCMDSolver implements UNSATCoreSolver {
 
   public CVC4SMTCMDSolver() {
     super("cvc4 -L smt -m --strings-exp", false);
+    smtExportConfig.replaceZ3Escape = true;
   }
 
   @Override

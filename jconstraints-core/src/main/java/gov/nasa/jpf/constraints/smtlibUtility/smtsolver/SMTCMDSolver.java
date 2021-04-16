@@ -49,7 +49,9 @@ public class SMTCMDSolver extends ConstraintSolver {
 
   public SMTCMDSolver(String solverCommand, boolean z3Mode) {
     this.solverCommand = solverCommand;
-    smtExportConfig = new SMTLibExportVisitorConfig(z3Mode, isUnsatCoreSolver);
+    String prop = System.getProperty("jconstraints.cmd_solver.replace_z3encoding", "false");
+    smtExportConfig =
+        new SMTLibExportVisitorConfig(z3Mode, isUnsatCoreSolver, Boolean.parseBoolean(prop));
   }
 
   @Override
@@ -129,6 +131,7 @@ public class SMTCMDSolver extends ConstraintSolver {
   static void getModel(
       SMTLibExportGenContext ctx, BufferedReader bos, List<Variable<?>> vars, Valuation result)
       throws IOException, InterruptedException {
+    result.shouldConvertZ3Encoding = true;
     ctx.getModel();
     while (!bos.ready()) {
       Thread.sleep(10);

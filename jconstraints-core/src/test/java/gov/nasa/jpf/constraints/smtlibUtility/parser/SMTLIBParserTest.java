@@ -286,4 +286,15 @@ public class SMTLIBParserTest {
     assertEquals(problem.variables.size(), 2);
     assertEquals(problem.assertions.size(), 2);
   }
+
+  @Test(
+      enabled = true,
+      groups = {"jsmtlib", "base"})
+  public void encodingError1Test()
+      throws SMTLIBParserException, IParser.ParserException, IOException {
+    final SMTProblem problem = parseResourceFile("5062_htmlCleaner13.smt2");
+
+    assertEquals(problem.variables.size(), 16464);
+    assertEquals(problem.assertions.size(), 14530);
+  }
 }

@@ -22,15 +22,17 @@ package gov.nasa.jpf.constraints.smtlibUtility.smtconverter;
 public class SMTLibExportVisitorConfig {
   public boolean isZ3Mode;
   public boolean namedAssert;
+  public boolean replaceZ3Escape;
   public int stmtCounter = 0;
 
   public SMTLibExportVisitorConfig() {
     // This is the default config
-    this(true, false);
+    this(true, false, false);
   }
 
-  public SMTLibExportVisitorConfig(boolean isZ3Mode, boolean namedAssert) {
+  public SMTLibExportVisitorConfig(boolean isZ3Mode, boolean namedAssert, boolean replaceZ3Escape) {
     this.isZ3Mode = isZ3Mode;
     this.namedAssert = namedAssert;
+    this.replaceZ3Escape = replaceZ3Escape;
   }
 }
