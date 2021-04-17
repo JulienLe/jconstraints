@@ -125,7 +125,9 @@ public class SequentialMultiStrategySolverContext extends SolverContext {
       try {
         assert (Boolean) expression.evaluateSMT(valuation);
       } catch (Exception e) {
-        res = Result.DONT_KNOW;
+        if (!e.getMessage().equals("Evaluation not supported for quantifiers")) {
+          res = Result.DONT_KNOW;
+        }
       }
     }
     if (res.equals(Result.UNSAT)) {

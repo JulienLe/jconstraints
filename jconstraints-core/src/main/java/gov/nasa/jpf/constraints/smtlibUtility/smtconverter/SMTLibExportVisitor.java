@@ -547,9 +547,11 @@ public class SMTLibExportVisitor extends AbstractExpressionVisitor<Void, Void> {
   public Void visit(QuantifierExpression q, Void v) {
     // TODO: this is untested!
     ctx.open("" + q.getQuantifier());
+    ctx.open("");
     for (Variable<?> var : q.getBoundVariables()) {
       ctx.appendLocalVarDecl(var);
     }
+    ctx.close();
     visit(q.getBody());
     ctx.close();
     return null;
